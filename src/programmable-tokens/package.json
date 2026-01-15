@@ -1,0 +1,19 @@
+{
+  "name": "cip-113-test",
+  "version": "1.0.0",
+  "description": "Test package for CIP-113",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "test": "tsx index.ts",
+    "dev": "tsx index.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@meshsdk/core": "1.9.0-beta.87",
+    "cbor": "^10.0.11"
+  }
+}
