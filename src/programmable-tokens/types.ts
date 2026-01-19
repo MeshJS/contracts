@@ -1,3 +1,5 @@
+import { PlutusScript } from "@meshsdk/common";
+
 export type RegistryDatum = {
     key: string;
     next: any;
@@ -52,4 +54,36 @@ export type RegistryDatum = {
       programmableBaseRefInput: TxInput;
       programmableGlobalRefInput: TxInput;
       txHash: string;
+    };
+
+    export type TokenScripts = {
+      mintingLogic: PlutusScript;
+      transferLogic: PlutusScript;
+      globalStateLogic?: PlutusScript;
+      thirdPartyLogic?: PlutusScript;
+    };
+
+    export type RegisterTokenParams = {
+      assetName: string;
+      scripts: TokenScripts;
+      transferRedeemerValue: any;
+      recipientAddress?: string;
+    };
+
+    export type MintTokensParams = {
+      assetName: string;
+      scripts: {
+        mintingLogic: PlutusScript;
+        transferLogic: PlutusScript;
+      };
+      transferRedeemerValue: any;
+      recipientAddress?: string | null;
+    };
+
+    export type TransferTokenParams = {
+      unit: string;
+      quantity: string;
+      recipientAddress: string;
+      transferLogic: PlutusScript;
+      transferRedeemerValue: any;
     };

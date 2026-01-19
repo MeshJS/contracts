@@ -14,39 +14,39 @@ import {
 } from "@meshsdk/core";
 import { scriptHashToRewardAddress } from "@meshsdk/core-cst";
 
-import { ProtocolBootstrapParams } from "../types";
-import { findValidator } from "../utils";
+import { ProtocolBootstrapParams } from "./types";
+import { findValidator } from "./utils";
 
 export class Cip113_scripts_standard {
-  private networkID: number;
-  constructor(networkID: number) {
-    this.networkID = networkID;
+  private networkId: number;
+  constructor(networkId: number) {
+    this.networkId = networkId;
   }
-  async blacklist_mint(utxo_reference: TxInput, manager_pubkey_hash: string) {
+  async blacklist_mint(utxoReference: TxInput, managerPubkeyHash: string) {
     const validator = findValidator("blacklist_mint", "mint");
     const cbor = applyParamsToScript(
       validator,
       [
         conStr(0, [
-          byteString(utxo_reference.txHash),
-          integer(utxo_reference.outputIndex),
+          byteString(utxoReference.txHash),
+          integer(utxoReference.outputIndex),
         ]),
-        byteString(manager_pubkey_hash),
+        byteString(managerPubkeyHash),
       ],
-      "JSON",
+      "JSON"
     );
-    const plutus_script: PlutusScript = {
+    const plutusScript: PlutusScript = {
       code: cbor,
       version: "V3",
     };
-    const policy_id = resolveScriptHash(cbor, "V3");
+    const policyId = resolveScriptHash(cbor, "V3");
 
-    return { cbor, plutus_script, policy_id };
+    return { cbor, plutusScript, policyId };
   }
 
   async issuance_mint(
     mintingLogicCredential: string,
-    params: ProtocolBootstrapParams | string,
+    params: ProtocolBootstrapParams | string
   ) {
     const validator = findValidator("issuance_mint", "mint");
     let paramScriptHash: string;
@@ -63,46 +63,46 @@ export class Cip113_scripts_standard {
         conStr1([byteString(paramScriptHash)]),
         conStr1([byteString(mintingLogicCredential)]),
       ],
-      "JSON",
+      "JSON"
     );
-    const plutus_script: PlutusScript = {
+    const plutusScript: PlutusScript = {
       code: cbor,
       version: "V3",
     };
-    const policy_id = resolveScriptHash(cbor, "V3");
+    const policyId = resolveScriptHash(cbor, "V3");
     const address = serializePlutusScript(
-      plutus_script,
+      plutusScript,
       undefined,
-      this.networkID,
-      false,
+      this.networkId,
+      false
     ).address;
-    return { cbor, plutus_script, policy_id, address };
+    return { cbor, plutusScript, policyId, address };
   }
 
-  async issuance_cbor_hex_mint(utxo_reference: TxInput) {
+  async issuance_cbor_hex_mint(utxoReference: TxInput) {
     const validator = findValidator("issuance_cbor_hex_mint", "mint");
     const cbor = applyParamsToScript(
       validator,
       [
         conStr(0, [
-          byteString(utxo_reference.txHash),
-          integer(utxo_reference.outputIndex),
+          byteString(utxoReference.txHash),
+          integer(utxoReference.outputIndex),
         ]),
       ],
-      "JSON",
+      "JSON"
     );
-    const plutus_script: PlutusScript = {
+    const plutusScript: PlutusScript = {
       code: cbor,
       version: "V3",
     };
-    const policy_id = resolveScriptHash(cbor, "V3");
+    const policyId = resolveScriptHash(cbor, "V3");
     const address = serializePlutusScript(
-      plutus_script,
+      plutusScript,
       undefined,
-      this.networkID,
-      false,
+      this.networkId,
+      false
     ).address;
-    return { cbor, plutus_script, policy_id, address };
+    return { cbor, plutusScript, policyId, address };
   }
 
   async programmable_logic_base(params: ProtocolBootstrapParams | string) {
@@ -118,16 +118,16 @@ export class Cip113_scripts_standard {
     const cbor = applyParamsToScript(
       validator,
       [conStr1([byteString(paramScriptHash)])],
-      "JSON",
+      "JSON"
     );
-    const plutus_script: PlutusScript = {
+    const plutusScript: PlutusScript = {
       code: cbor,
       version: "V3",
     };
     const policyId = resolveScriptHash(cbor, "V3");
     return {
       cbor,
-      plutus_script,
+      plutusScript,
       policyId,
     };
   }
@@ -145,50 +145,47 @@ export class Cip113_scripts_standard {
     const cbor = applyParamsToScript(
       validator,
       [scriptHash(paramScriptHash)],
-      "JSON",
+      "JSON"
     );
-    const script_hash = resolveScriptHash(cbor, "V3");
-    const reward_address = scriptHashToRewardAddress(
-      script_hash,
-      this.networkID,
-    );
-    const plutus_script: PlutusScript = {
+    const policyId = resolveScriptHash(cbor, "V3");
+    const rewardAddress = scriptHashToRewardAddress(policyId, this.networkId);
+    const plutusScript: PlutusScript = {
       code: cbor,
       version: "V3",
     };
 
-    return { cbor, plutus_script, reward_address, script_hash };
+    return { cbor, plutusScript, rewardAddress, policyId };
   }
 
-  async protocol_param_mint(utxo_reference: TxInput) {
+  async protocol_param_mint(utxoReference: TxInput) {
     const validator = findValidator("protocol_params_mint", "mint");
     const cbor = applyParamsToScript(
       validator,
       [
         conStr(0, [
-          byteString(utxo_reference.txHash),
-          integer(utxo_reference.outputIndex),
+          byteString(utxoReference.txHash),
+          integer(utxoReference.outputIndex),
         ]),
       ],
-      "JSON",
+      "JSON"
     );
-    const plutus_script: PlutusScript = {
+    const plutusScript: PlutusScript = {
       code: cbor,
       version: "V3",
     };
-    const script_hash = resolveScriptHash(cbor, "V3");
+    const policyId = resolveScriptHash(cbor, "V3");
     const address = serializePlutusScript(
-      plutus_script,
+      plutusScript,
       undefined,
-      this.networkID,
-      false,
+      this.networkId,
+      false
     ).address;
-    return { cbor, plutus_script, script_hash, address };
+    return { cbor, plutusScript, policyId, address };
   }
 
   async registry_mint(
     params: ProtocolBootstrapParams | string,
-    utxo?: TxInput,
+    utxo?: TxInput
   ) {
     const validator = findValidator("registry_mint", "mint");
 
@@ -216,14 +213,14 @@ export class Cip113_scripts_standard {
         ]),
         scriptHash(paramScriptHash),
       ],
-      "JSON",
+      "JSON"
     );
-    const plutus_script: PlutusScript = {
+    const plutusScript: PlutusScript = {
       code: cbor,
       version: "V3",
     };
-    const policy_id = resolveScriptHash(cbor, "V3");
-    return { cbor, plutus_script, policy_id };
+    const policyId = resolveScriptHash(cbor, "V3");
+    return { cbor, plutusScript, policyId };
   }
 
   async registry_spend(params: ProtocolBootstrapParams | string) {
@@ -239,44 +236,72 @@ export class Cip113_scripts_standard {
     const cbor = applyParamsToScript(
       validator,
       [scriptHash(paramScriptHash)],
-      "JSON",
+      "JSON"
     );
-    const plutus_script: PlutusScript = {
+    const plutusScript: PlutusScript = {
       code: cbor,
       version: "V3",
     };
     const address = serializePlutusScript(
-      plutus_script,
+      plutusScript,
       "",
-      this.networkID,
-      false,
+      this.networkId,
+      false
     ).address;
-    const policy_id = resolveScriptHash(cbor, "V3");
+    const policyId = resolveScriptHash(cbor, "V3");
     return {
       cbor,
-      plutus_script,
+      plutusScript,
       address,
-      policy_id,
+      policyId,
     };
   }
 
-  async example_transfer_logic(permitted_credential: string) {
+  async example_transfer_logic(permittedCredential: string) {
     const validator = findValidator("example_transfer_logic", "withdraw");
     const cbor = applyParamsToScript(
       validator,
-      [scriptHash(permitted_credential)],
-      "JSON",
+      [scriptHash(permittedCredential)],
+      "JSON"
     );
-    const plutus_script: PlutusScript = {
+    const plutusScript: PlutusScript = {
       code: cbor,
       version: "V3",
     };
     const address = serializePlutusScript(
-      plutus_script,
-      permitted_credential,
-      this.networkID,
-      true,
+      plutusScript,
+      permittedCredential,
+      this.networkId,
+      true
     ).address;
-    return { cbor, plutus_script, address };
+    return { cbor, plutusScript, address };
+  }
+
+  async freeze_and_seize_transfer_logic(params: ProtocolBootstrapParams | string, blacklistNodeCs: string) {
+    const validator = findValidator("example_transfer_logic", "withdraw");
+    let paramScriptHash: string;
+    if (typeof params === "string") {
+      paramScriptHash = params;
+    } else {
+      paramScriptHash = params?.programmableLogicBaseParams.scriptHash!;
+    }
+    if (!paramScriptHash)
+      throw new Error("could not resolve logic base parameter");
+    const cbor = applyParamsToScript(
+      validator,
+      [scriptHash(paramScriptHash), scriptHash(blacklistNodeCs)],
+      "JSON"
+    );
+    const plutusScript: PlutusScript = {
+      code: cbor,
+      version: "V3",
+    };
+    const address = serializePlutusScript(
+      plutusScript,
+      paramScriptHash,
+      this.networkId,
+      true
+    ).address;
+    return { cbor, plutusScript, address };
   }
 }
