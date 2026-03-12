@@ -10,7 +10,7 @@ use types.{BlacklistProof, NonmembershipProof}
 use utils
 
 // Simple example: only allow transfers signed by a specific credential
-validator example_transfer_logic(permitted_cred: Credential) {
+validator issuer_admin_contract(permitted_cred: Credential) {
   withdraw(_redeemer: Data, _account: Credential, self: Transaction) {
     // This example transfer logic simply checks that a specific credential
     // has authorized the transfer
@@ -130,7 +130,7 @@ fn is_rewarding_script(
 
 // Freeze-and-seize transfer logic validator
 // This validates transfers against a blacklist
-validator freeze_and_seize_transfer(
+validator transfer(
   programmable_logic_base_cred: Credential,
   blacklist_node_cs: PolicyId,
 ) {
