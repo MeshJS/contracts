@@ -1,6 +1,6 @@
 {
   "name": "@meshsdk/contract",
-  "version": "1.9.0-beta.87",
+  "version": "1.9.0-beta.103",
   "description": "List of open-source smart contracts, complete with documentation, live demos, and end-to-end source code. https://meshjs.dev/smart-contracts",
   "main": "./dist/index.cjs",
   "browser": "./dist/index.js",
@@ -28,7 +28,14 @@
     "test": "jest"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@typescript-eslint/eslint-plugin": "^7.1.0",
+    "@typescript-eslint/parser": "^7.1.0",
+    "dotenv": "^16.4.5",
     "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
     "tsup": "^8.0.2",
     "typescript": "^5.3.3"
   },
