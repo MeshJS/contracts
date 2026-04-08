@@ -6,45 +6,52 @@ import {
   conStr2,
   integer,
   list,
-  none,
   POLICY_ID_LENGTH,
   stringToHex,
   UTxO,
 } from "@meshsdk/common";
 import { deserializeDatum } from "@meshsdk/core";
-import { deserializeAddress } from "@meshsdk/core-cst";
 
 import { MeshTxInitiator, MeshTxInitiatorInput } from "../../common";
 import { StandardScripts, SubStandardScripts } from "./common";
-import { BlacklistBootstrap, ProtocolBootstrapParams } from "./type";
 import {
-  buildBlacklistScripts,
-  getSmartWalletAddress,
+  BlacklistBootstrap,
+  BlacklistDatum,
+  ProtocolBootstrapParams,
+  smartWalletAddress,
+} from "./type";
+import {
   parseBlacklistDatum,
   parseRegistryDatum,
   selectProgrammableTokenUtxos,
 } from "./utils";
+import { resolveBlacklistScripts, resolveStakeCredential } from "./resolvers";
+import params from "./protocolParams.json";
 
 export class ProgrammableTokenContract extends MeshTxInitiator {
-  private params: ProtocolBootstrapParams | undefined;
-  private blacklistBootstrap: BlacklistBootstrap | undefined;
+  private _blacklistBootstrap: BlacklistBootstrap | undefined;
+  private _params: ProtocolBootstrapParams;
+
   constructor(
     private inputs: MeshTxInitiatorInput,
-    params?: ProtocolBootstrapParams,
     blacklistBootstrap?: BlacklistBootstrap,
   ) {
     super(inputs);
-    this.params = params;
-    this.blacklistBootstrap = blacklistBootstrap;
+    this._params = params;
+    this._blacklistBootstrap = blacklistBootstrap;
   }
 
-  mintTokens = async (
+  get protocolParams() {
+    return this._params;
+  }
+
+  mintToken = async (
     assetName: string,
     quantity: string,
     issuerAdminPkh: string,
-    recipientAddress?: string | null,
+    recepientSmartAddress: smartWalletAddress,
   ): Promise<string> => {
-    const params = this.params;
+    const params = this._params;
     const fetcher = this.fetcher;
     const wallet = this.wallet;
     if (!params || !fetcher || !wallet)
@@ -69,11 +76,6 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     const issuanceMint = await standardScript.issuanceMint(
       substandardPolicyId,
       params,
-    );
-    const smartWalletAddress = await getSmartWalletAddress(
-      recipientAddress ? recipientAddress : changeAddress,
-      params,
-      this.networkId as 0 | 1,
     );
 
     const issuanceRedeemer = conStr0([
@@ -102,7 +104,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
       .mintingScript(issuanceMint.cbor)
       .mintRedeemerValue(issuanceRedeemer, "JSON")
 
-      .txOut(smartWalletAddress, programmableTokenAssets)
+      .txOut(recepientSmartAddress, programmableTokenAssets)
       .txOutInlineDatumValue(programmableTokenDatum, "JSON")
 
       .requiredSignerHash(issuerAdminPkh)
@@ -114,30 +116,20 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     return await this.mesh.complete();
   };
 
-  burnToken = async (request: {
-    tokenPolicyId: string;
-    assetName: string;
-    quantity: string;
-    txhash: string;
-    outputIndex: number;
-    issuerAdminPkh: string;
-  }): Promise<string> => {
-    const params = this.params;
+  burnToken = async (
+    assetName: string,
+    quantity: string,
+    txhash: string,
+    outputIndex: number,
+    issuerAdminPkh: string,
+  ): Promise<string> => {
+    const params = this._params;
     const fetcher = this.fetcher;
     const wallet = this.wallet;
     if (!params || !fetcher || !wallet)
       throw new Error(
         "Contract parameters, fetcher, or wallet not initialized",
       );
-
-    const {
-      tokenPolicyId,
-      assetName,
-      quantity,
-      txhash,
-      outputIndex,
-      issuerAdminPkh,
-    } = request;
     const {
       utxos: walletUtxos,
       walletAddress: changeAddress,
@@ -175,7 +167,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
       const parsed = parseRegistryDatum(
         deserializeDatum(utxo.output.plutusData),
       );
-      return parsed?.key === tokenPolicyId;
+      return parsed?.key === issuanceMint.policyId;
     });
     if (!progTokenRegistry)
       throw new Error("Registry entry not found, token not registered");
@@ -194,7 +186,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     )?.[0];
     if (!protocolParamsUtxo) throw new Error("Protocol params missing");
 
-    const totalInputs = 2; // feePayerUtxo + utxoToBurn
+    const totalInputs = [feePayerUtxo, utxoToBurn].length;
 
     const compareUtxos = (a: UTxO, b: UTxO): number =>
       a.input.txHash !== b.input.txHash
@@ -284,9 +276,10 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
   transferToken = async (
     unit: string,
     quantity: string,
-    recipientAddress: string,
+    senderSmartWallet: smartWalletAddress,
+    recipientSmartWallet: smartWalletAddress,
   ): Promise<string> => {
-    const params = this.params;
+    const params = this._params;
     const fetcher = this.fetcher;
     const wallet = this.wallet;
     if (!params || !fetcher || !wallet)
@@ -309,31 +302,15 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
       await standard.programmableLogicGlobal(params);
     const registrySpend = await standard.registrySpend(params);
 
-    if (!this.blacklistBootstrap)
+    if (!this._blacklistBootstrap)
       throw new Error("Blacklist bootstrap not initialized");
     const blacklistNodePolicyId =
-      this.blacklistBootstrap.blacklistMintBootstrap.scriptHash;
+      this._blacklistBootstrap.blacklistMintBootstrap.scriptHash;
     const substandardTransfer = await substandard.customTransfer(
       params.programmableLogicBaseParams.scriptHash,
       blacklistNodePolicyId,
     );
     const substandardTransferCbor = substandardTransfer.cbor;
-
-    const senderCredential = deserializeAddress(changeAddress).asBase()
-      ?.getStakeCredential().hash;
-    if (!senderCredential)
-      throw new Error("Sender address must include a stake credential");
-
-    const senderSmartWallet = await getSmartWalletAddress(
-      changeAddress,
-      params,
-      this.networkId as 0 | 1,
-    );
-    const recipientSmartWallet = await getSmartWalletAddress(
-      recipientAddress,
-      params,
-      this.networkId as 0 | 1,
-    );
 
     const progTokenRegistry = (
       await fetcher.fetchAddressUTxOs(registrySpend.address)
@@ -394,8 +371,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
       );
 
       for (const utxo of programmableInputs) {
-        const stakingPkh = deserializeAddress(utxo.output.address).asBase()
-          ?.getStakeCredential().hash;
+        const stakingPkh = resolveStakeCredential(utxo.output.address);
         if (!stakingPkh) throw new Error("UTXO missing stake credential");
 
         const proofUtxo = blacklistUtxos.find((bl: UTxO) => {
@@ -548,7 +524,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     }
 
     this.mesh
-      .requiredSignerHash(senderCredential)
+      .requiredSignerHash(resolveStakeCredential(senderSmartWallet))
       .setFee("600000")
       .txInCollateral(collateral.input.txHash, collateral.input.outputIndex)
       .selectUtxosFrom(walletUtxos)
@@ -558,7 +534,9 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     return await this.mesh.complete();
   };
 
-  blacklistAddress = async (targetAddress: string): Promise<string> => {
+  blacklistSmartWalletAddress = async (
+    targetSmartWalletAddress: smartWalletAddress,
+  ): Promise<string> => {
     const fetcher = this.fetcher;
     const wallet = this.wallet;
     if (!fetcher || !wallet)
@@ -570,18 +548,11 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
       collateral,
     } = await this.getWalletInfoForTx();
 
-    const addressToBlacklist = deserializeAddress(targetAddress);
-    const targetStakingPkh = addressToBlacklist
-      .asBase()
-      ?.getStakeCredential().hash;
-    if (!targetStakingPkh)
-      throw new Error("Target address must include a stake credential");
-
-    if (!this.blacklistBootstrap)
+    if (!this._blacklistBootstrap)
       throw new Error("Blacklist bootstrap not initialized");
     const blacklistMintBootstrap =
-      this.blacklistBootstrap.blacklistMintBootstrap;
-    const { blacklistMint, blacklistSpend } = await buildBlacklistScripts(
+      this._blacklistBootstrap.blacklistMintBootstrap;
+    const { blacklistMint, blacklistSpend } = await resolveBlacklistScripts(
       this.networkId as 0 | 1,
       blacklistMintBootstrap.txInput,
       blacklistMintBootstrap.adminPubKeyHash,
@@ -595,8 +566,10 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     );
     if (!blacklistUtxos?.length) throw new Error("No blacklist UTxOs found");
 
+    const targetStakeHash = resolveStakeCredential(targetSmartWalletAddress);
+
     let nodeToReplace: UTxO | null = null;
-    let preexistingNode: { key: string; next: string } | null = null;
+    let preexistingNode: BlacklistDatum | null = null;
 
     for (const utxo of blacklistUtxos) {
       if (!utxo.output.plutusData) continue;
@@ -604,11 +577,11 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
         deserializeDatum(utxo.output.plutusData),
       );
       if (!datum) continue;
-      if (datum.key === targetStakingPkh)
+      if (datum.key === targetStakeHash)
         throw new Error("Target address is already blacklisted");
       if (
-        datum.key.localeCompare(targetStakingPkh) < 0 &&
-        targetStakingPkh.localeCompare(datum.next) < 0
+        datum.key.localeCompare(targetStakeHash) < 0 &&
+        targetStakeHash.localeCompare(datum.next) < 0
       ) {
         nodeToReplace = utxo;
         preexistingNode = datum;
@@ -621,18 +594,18 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
 
     const beforeNode = conStr0([
       byteString(preexistingNode.key),
-      byteString(targetStakingPkh),
+      byteString(targetStakeHash),
     ]);
     const afterNode = conStr0([
-      byteString(targetStakingPkh),
+      byteString(targetStakeHash),
       byteString(preexistingNode.next),
     ]);
 
-    const mintRedeemer = conStr1([byteString(targetStakingPkh)]);
+    const mintRedeemer = conStr1([byteString(targetStakeHash)]);
     const spendRedeemer = conStr0([]);
     const mintedAssets: Asset[] = [
       {
-        unit: blacklistMint.policyId + targetStakingPkh,
+        unit: blacklistMint.policyId + targetStakeHash,
         quantity: "1",
       },
     ];
@@ -646,7 +619,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
       .txInInlineDatumPresent()
 
       .mintPlutusScriptV3()
-      .mint("1", blacklistMint.policyId, targetStakingPkh)
+      .mint("1", blacklistMint.policyId, targetStakeHash)
       .mintingScript(blacklistMint.cbor)
       .mintRedeemerValue(mintRedeemer, "JSON")
 
@@ -657,7 +630,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
       .txOutInlineDatumValue(afterNode, "JSON")
 
       .requiredSignerHash(
-        this.blacklistBootstrap.blacklistMintBootstrap.adminPubKeyHash,
+        this._blacklistBootstrap.blacklistMintBootstrap.adminPubKeyHash,
       )
       .txInCollateral(collateral.input.txHash, collateral.input.outputIndex)
       .selectUtxosFrom(walletUtxos)
@@ -667,23 +640,24 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     return await this.mesh.complete();
   };
 
-  whitelistAddress = async (targetAddress: string): Promise<string> => {
+  whitelistSmartWalletAddress = async (
+    smartWalletAddress: smartWalletAddress,
+  ): Promise<string> => {
     const fetcher = this.fetcher;
-    const { utxos: walletUtxos, walletAddress: changeAddress, collateral } =
-      await this.getWalletInfoForTx();
-    if (!fetcher)
-      throw new Error("Fetcher or wallet not initialized");
+    const {
+      utxos: walletUtxos,
+      walletAddress: changeAddress,
+      collateral,
+    } = await this.getWalletInfoForTx();
+    if (!fetcher) throw new Error("Fetcher or wallet not initialized");
 
-    const targetAddr = deserializeAddress(targetAddress);
-    const credentialsToRemove = targetAddr.asBase()?.getStakeCredential().hash;
-    if (!credentialsToRemove)
-      throw new Error("Target address must include a stake credential");
+    const credentialsToRemove = resolveStakeCredential(smartWalletAddress);
 
-    if (!this.blacklistBootstrap)
+    if (!this._blacklistBootstrap)
       throw new Error("Blacklist bootstrap not initialized");
     const blacklistMintBootstrap =
-      this.blacklistBootstrap.blacklistMintBootstrap;
-    const { blacklistMint, blacklistSpend } = await buildBlacklistScripts(
+      this._blacklistBootstrap.blacklistMintBootstrap;
+    const { blacklistMint, blacklistSpend } = await resolveBlacklistScripts(
       this.networkId as 0 | 1,
       blacklistMintBootstrap.txInput,
       blacklistMintBootstrap.adminPubKeyHash,
@@ -760,7 +734,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
       .txOutInlineDatumValue(updatedNode, "JSON")
 
       .requiredSignerHash(
-        this.blacklistBootstrap.blacklistMintBootstrap.adminPubKeyHash,
+        this._blacklistBootstrap.blacklistMintBootstrap.adminPubKeyHash,
       )
       .txInCollateral(collateral.input.txHash, collateral.input.outputIndex)
       .selectUtxosFrom(walletUtxos)
@@ -774,10 +748,10 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     unit: string,
     utxoTxHash: string,
     utxoOutputIndex: number,
-    targetAddress: string,
+    recipientSmartWallet: smartWalletAddress,
     issuerAdminPkh: string,
   ): Promise<string> => {
-    const params = this.params;
+    const params = this._params;
     const fetcher = this.fetcher;
     const wallet = this.wallet;
     if (!params || !fetcher || !wallet)
@@ -800,12 +774,6 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
       await standardScript.programmableLogicGlobal(params);
     const registrySpend = await standardScript.registrySpend(params);
 
-    const recipientSmartWallet = await getSmartWalletAddress(
-      targetAddress,
-      params,
-      this.networkId as 0 | 1,
-    );
-
     const feePayerUtxo = walletUtxos.find(
       (u) =>
         BigInt(
@@ -821,7 +789,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     if (!utxoToSeize.output.plutusData)
       throw new Error("UTXO to seize must have inline datum");
 
-    const totalInputs = 2; // feePayerUtxo + utxoToSeize
+    const totalInputs = [feePayerUtxo, utxoToSeize].length;
     const tokenAsset = utxoToSeize.output.amount.find((a) => a.unit === unit);
     if (!tokenAsset)
       throw new Error("UTXO does not contain the specified token");
@@ -925,11 +893,13 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     return await this.mesh.complete();
   };
 
-  initializeBlacklist = async (): Promise<{
+  initializeBlacklist = async (
+    adminPubKeyHash: string,
+  ): Promise<{
     txHex: string;
     bootstrap: BlacklistBootstrap;
   }> => {
-    const params = this.params;
+    const params = this._params;
     const wallet = this.wallet;
     if (!params || !wallet)
       throw new Error("Contract parameters or wallet not initialized");
@@ -955,12 +925,6 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     }
 
     const bootstrapInput = utilityUtxos[0]!.input;
-
-    const adminAddr = deserializeAddress(changeAddress);
-    const adminPubKeyHash = adminAddr.asBase()?.getPaymentCredential().hash;
-    if (!adminPubKeyHash) throw new Error("Could not resolve admin PKH");
-
-    const standardScript = new StandardScripts(this.networkId);
     const substandardScript = new SubStandardScripts(this.networkId);
 
     const blacklistMint = await substandardScript.blacklistMint(
@@ -972,14 +936,6 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
       blacklistMintPolicyId,
     );
     const blacklistSpendAddress = blacklistSpend.address;
-
-    const substandardIssueScript =
-      await substandardScript.issuerAdmin(adminPubKeyHash);
-    const substandardIssueAddress = substandardIssueScript.rewardAddress;
-
-    const programmableLogicBase =
-      await standardScript.programmableLogicBase(params);
-    const programmableLogicbasePolicyId = programmableLogicBase.policyId;
 
     const blacklistInitDatum = conStr0([
       byteString(""),

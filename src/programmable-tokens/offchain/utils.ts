@@ -9,21 +9,15 @@ import {
   RegistryDatum,
 } from "./type";
 import {
-  buildBaseAddress,
-  CredentialType,
   deserializeAddress,
-  Hash28ByteBase16,
 } from "@meshsdk/core-cst";
-import { StandardScripts } from "./common";
-import { ProtocolBootstrapParams } from "./type";
 import {
   deserializeDatum,
   IFetcher,
   IWallet,
-  TxInput,
   UTxO,
 } from "@meshsdk/core";
-import { SubStandardScripts } from "./common";
+import { resolveBlacklistScripts } from "./resolvers";
 
 export const findValidator = (
   validatorName: string,
@@ -100,45 +94,6 @@ export function parseBlacklistDatum(datum: any): BlacklistDatum | null {
   };
 }
 
-export const getSmartWalletAddress = async (
-  address: string,
-  params: ProtocolBootstrapParams,
-  NetworkId: 0 | 1,
-) => {
-  const credential = deserializeAddress(address)
-    .asBase()
-    ?.getStakeCredential().hash;
-  if (!credential) {
-    throw new Error("Credential not found");
-  }
-  const standardScript = new StandardScripts(NetworkId);
-  const programmableLogicBase =
-    await standardScript.programmableLogicBase(params);
-  const baseAddress = buildBaseAddress(
-    0,
-    programmableLogicBase.policyId as Hash28ByteBase16,
-    credential!,
-    CredentialType.ScriptHash,
-    CredentialType.KeyHash,
-  );
-  return baseAddress.toAddress().toBech32();
-};
-
-export async function buildBlacklistScripts(
-  NetworkId: 0 | 1,
-  txInput: TxInput,
-  adminPkh: string,
-) {
-  const substandardScript = new SubStandardScripts(NetworkId);
-  const blacklistMint = await substandardScript.blacklistMint(
-    txInput,
-    adminPkh,
-  );
-  const blacklistSpend = await substandardScript.blacklistSpend(
-    blacklistMint.policyId,
-  );
-  return { blacklistMint, blacklistSpend };
-}
 
 export const selectProgrammableTokenUtxos = async (
   senderProgTokenUtxos: UTxO[],
@@ -171,7 +126,7 @@ export const isAddressBlacklisted = async (
 
   if (!stakeCredential) return false;
 
-  const { blacklistSpend } = await buildBlacklistScripts(
+  const { blacklistSpend } = await resolveBlacklistScripts(
     NetworkId,
     blacklistBootstrap.blacklistMintBootstrap.txInput,
     blacklistBootstrap.blacklistMintBootstrap.adminPubKeyHash,
