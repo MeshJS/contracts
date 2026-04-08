@@ -1,9 +1,13 @@
 import cbor from "cbor";
-
 import subStandardPlutusScriptFreeze from "../aiken-workspace-subStandard/freeze-and-seize/plutus.json";
 import subStandardPlutusScriptDummy from "../aiken-workspace-subStandard/dummy/plutus.json";
 import standardPlutusScript from "../aiken-workspace-standard/plutus.json";
-import { BlacklistBootstrap, BlacklistDatum, RegistryDatum } from "./type";
+import {
+  BlacklistBootstrap,
+  BlacklistDatum,
+  RegistryCredential,
+  RegistryDatum,
+} from "./type";
 import {
   buildBaseAddress,
   CredentialType,
@@ -15,9 +19,7 @@ import { ProtocolBootstrapParams } from "./type";
 import {
   deserializeDatum,
   IFetcher,
-  ISubmitter,
   IWallet,
-  MeshTxBuilder,
   TxInput,
   UTxO,
 } from "@meshsdk/core";
@@ -55,16 +57,36 @@ export const walletConfig = async (wallet: IWallet) => {
   return { changeAddress, walletUtxos, collateral };
 };
 
+function extractBytes(field: any): string {
+  if (!field) return "";
+  if (typeof field === "string") return field;
+  if (field.bytes) return field.bytes;
+  if (field.fields && field.fields.length > 0) {
+    const inner = field.fields[0];
+    if (typeof inner === "string") return inner;
+    if (inner?.bytes) return inner.bytes;
+  }
+  return "";
+}
+
 export function parseRegistryDatum(datum: any): RegistryDatum | null {
   if (!datum?.fields || datum.fields.length < 5) {
     return null;
   }
+
+  const getCredential = (field: any): RegistryCredential => {
+    return {
+      hash: extractBytes(field),
+      index: field.constructor ?? 0,
+    };
+  };
+
   return {
-    key: datum.fields[0].bytes,
-    next: datum.fields[1].bytes,
-    transferScriptHash: datum.fields[2].bytes,
-    thirdPartyScriptHash: datum.fields[3].bytes,
-    metadata: datum.fields[4].bytes,
+    key: extractBytes(datum.fields[0]),
+    next: extractBytes(datum.fields[1]),
+    transferScript: getCredential(datum.fields[2]),
+    thirdPartyScript: getCredential(datum.fields[3]),
+    metadata: extractBytes(datum.fields[4]),
   };
 }
 
@@ -73,8 +95,8 @@ export function parseBlacklistDatum(datum: any): BlacklistDatum | null {
     return null;
   }
   return {
-    key: datum.fields[0].bytes,
-    next: datum.fields[1].bytes,
+    key: extractBytes(datum.fields[0]),
+    next: extractBytes(datum.fields[1]),
   };
 }
 
@@ -165,58 +187,3 @@ export const isAddressBlacklisted = async (
     return datum?.key === stakeCredential;
   });
 };
-
-export async function splitWallet(
-  wallet: IWallet,
-  networkId: 0 | 1,
-  fetcher: IFetcher,
-): Promise<string> {
-  const changeAddress = await wallet.getChangeAddress();
-  const walletUtxos = await wallet.getUtxos();
-  const txBuilder = new MeshTxBuilder({
-    fetcher: fetcher,
-  });
-
-  const unsignedTx = await txBuilder
-    .selectUtxosFrom(walletUtxos)
-    .txOut(changeAddress, [{ unit: "lovelace", quantity: "5000000" }])
-    .txOut(changeAddress, [{ unit: "lovelace", quantity: "5000000" }])
-    .changeAddress(changeAddress)
-    .setNetwork(networkId === 0 ? "preview" : "mainnet")
-    .complete();
-
-  const signedTx = await wallet.signTx(unsignedTx);
-  const txHash = await wallet.submitTx(signedTx);
-  if (!txHash) throw new Error("Failed to split wallet");
-  return txHash;
-}
-
-export async function waitForUtxosWithTimeout(
-  txHash: string,
-  fetcher: IFetcher,
-  timeoutMs = 150_000,
-  intervalMs = 30_000,
-): Promise<UTxO[]> {
-  const start = Date.now();
-  console.log(
-    "Kindly wait for approx. 5 minutes for utxo split and transaction confirmed onchain",
-  );
-  while (Date.now() - start < timeoutMs) {
-    let utxos: UTxO[] | undefined;
-    try {
-      utxos = await fetcher.fetchUTxOs(txHash);
-    } catch {
-      utxos = undefined;
-    }
-
-    if (Array.isArray(utxos) && utxos.length > 0) {
-      return utxos;
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
-  }
-
-  throw new Error(
-    `Timed out after ${timeoutMs / 1000}s waiting for UTxOs from tx ${txHash}`,
-  );
-}

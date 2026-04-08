@@ -171,33 +171,7 @@ export class StandardScripts {
       address: this.toAddress(plutusScript, ""),
     };
   }
-
-  // Compatibility wrappers (older offchain code used snake_case)
-  async issuance_mint(mintingLogicCredential: string, params: ProtocolBootstrapParams | string) {
-    return this.issuanceMint(mintingLogicCredential, params);
-  }
-  async issuance_cbor_hex_mint(utxo_reference: TxInput) {
-    return this.issuanceCborHexMint(utxo_reference);
-  }
-  async programmable_logic_base(params: ProtocolBootstrapParams | string) {
-    return this.programmableLogicBase(params);
-  }
-  async programmable_logic_global(params: ProtocolBootstrapParams | string) {
-    return this.programmableLogicGlobal(params);
-  }
-  async protocol_param_mint(utxo_reference: TxInput) {
-    return this.protocolParamMint(utxo_reference);
-  }
-  async registry_mint(params: ProtocolBootstrapParams | string, utxo?: TxInput) {
-    return this.registryMint(params, utxo);
-  }
-  async registry_spend(params: ProtocolBootstrapParams | string) {
-    return this.registrySpend(params);
-  }
 }
-
-/** @deprecated Use StandardScripts instead */
-export { StandardScripts as Cip113_scripts_standard };
 
 export class SubStandardScripts {
   constructor(private readonly networkID: number) {}

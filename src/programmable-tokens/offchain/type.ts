@@ -5,12 +5,17 @@ export type BlacklistDatum = {
   next: string;
 };
 
+export type RegistryCredential = {
+  hash: string;
+  index: number;
+};
+
 export type RegistryDatum = {
   key: string;
-  next: any;
-  transferScriptHash: string;
-  thirdPartyScriptHash: string;
-  metadata: any;
+  next: string;
+  transferScript: RegistryCredential;
+  thirdPartyScript: RegistryCredential;
+  metadata: string;
 };
 
 export type TxInput = {
@@ -21,6 +26,7 @@ export type TxInput = {
 export type ProtocolParams = {
   txInput: TxInput;
   scriptHash: string;
+  alwaysFailScriptHash: string;
 };
 
 export type ProgrammableLogicGlobalParams = {
@@ -36,6 +42,7 @@ export type ProgrammableLogicBaseParams = {
 export type IssuanceParams = {
   txInput: TxInput;
   scriptHash: string;
+  alwaysFailScriptHash: string;
 };
 
 export type DirectoryMintParams = {
