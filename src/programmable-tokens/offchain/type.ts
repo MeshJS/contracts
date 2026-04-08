@@ -1,8 +1,8 @@
 import { PlutusScript } from "@meshsdk/common";
 
-export type smartWalletAddress = string;
+export type smartWalletAddress = string & { readonly __brand: "SmartWalletAddress" };
 
-export type stakeCredential = string;
+export type stakeCredential = string & { readonly __brand: "StakeCredential" };
 
 export type BlacklistDatum = {
   key: string;

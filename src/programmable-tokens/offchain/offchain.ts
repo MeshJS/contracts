@@ -535,7 +535,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
   };
 
   blacklistSmartWalletAddress = async (
-    targetSmartWalletAddress: smartWalletAddress,
+    smartWalletAddress: smartWalletAddress,
   ): Promise<string> => {
     const fetcher = this.fetcher;
     const wallet = this.wallet;
@@ -566,7 +566,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     );
     if (!blacklistUtxos?.length) throw new Error("No blacklist UTxOs found");
 
-    const targetStakeHash = resolveStakeCredential(targetSmartWalletAddress);
+    const targetStakeHash = resolveStakeCredential(smartWalletAddress);
 
     let nodeToReplace: UTxO | null = null;
     let preexistingNode: BlacklistDatum | null = null;
@@ -746,10 +746,10 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
 
   seizeToken = async (
     unit: string,
-    utxoTxHash: string,
-    utxoOutputIndex: number,
-    recipientSmartWallet: smartWalletAddress,
+    txHash: string,
+    outputIndex: number,
     issuerAdminPkh: string,
+    recipientSmartWallet: smartWalletAddress,
   ): Promise<string> => {
     const params = this._params;
     const fetcher = this.fetcher;
