@@ -783,7 +783,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     if (!feePayerUtxo)
       throw new Error("No UTXO with enough ADA for fees found");
 
-    const utxosAtRef = await fetcher.fetchUTxOs(utxoTxHash, utxoOutputIndex);
+    const utxosAtRef = await fetcher.fetchUTxOs(txHash, outputIndex);
     const utxoToSeize = utxosAtRef?.[0];
     if (!utxoToSeize) throw new Error("Could not find utxo to seize");
     if (!utxoToSeize.output.plutusData)
