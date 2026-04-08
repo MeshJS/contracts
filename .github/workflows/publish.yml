@@ -1,0 +1,82 @@
+name: Publish Package
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    strategy:
+      matrix:
+        node-version: [20]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install dependencies
+        run: npm install
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+
+  check-version:
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.event.pull_request.merged == true
+    outputs:
+      version-updated: ${{ steps.compare-versions.outputs.version-updated }}
+    steps:
+      - name: Checkout main branch at commit before merge
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Get version before merge
+        id: pre-merge-version
+        run: |
+          PRE_MERGE_VERSION=$(node -p "require('./package.json').version")
+          echo "pre_merge_version=$PRE_MERGE_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout main branch at commit after merge
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Get version after merge
+        id: post-merge-version
+        run: |
+          POST_MERGE_VERSION=$(node -p "require('./package.json').version")
+          echo "post_merge_version=$POST_MERGE_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Compare versions
+        id: compare-versions
+        run: |
+          if [[ "${{ steps.pre-merge-version.outputs.pre_merge_version }}" != "${{ steps.post-merge-version.outputs.post_merge_version }}" ]]; then
+              echo "version-updated=true" >> "$GITHUB_OUTPUT"
+          else
+              echo "version-updated=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    needs: [build, check-version]
+    if: needs.check-version.outputs.version-updated == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org/
+      - run: npm install
+      - run: npm run build
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
