@@ -1,45 +1,11 @@
-use aiken/builtin
+//// Utility functions for CIP-0143 validators
+//// Migrated from various Plutarch utility modules
+
+use aiken/builtin.{tail_list}
 use aiken/collection/dict
 use aiken/collection/list
-// Utility functions for CIP-0143 validators
-// Migrated from various Plutarch utility modules
-
-use cardano/address.{Credential}
-use cardano/assets.{PolicyId, Value, flatten, quantity_of}
-use cardano/transaction.{InlineDatum, Input, Output, Transaction}
-
-/// Check if a value contains at least the required amount of a specific asset
-pub fn value_contains(value: Value, required: Value) -> Bool {
-  list.all(
-    flatten(required),
-    fn(asset) {
-      let (policy, name, req_qty) = asset
-      quantity_of(value, policy, name) >= req_qty
-    },
-  )
-}
-
-// Is there any chance values have same assets.....
-pub fn value_contains_v2(value: Value, required: Value) -> Bool {
-  assets.reduce(
-    required,
-    True,
-    fn(policy, name, req_qty, acc) {
-      acc && quantity_of(value, policy, name) >= req_qty
-    },
-  )
-}
-
-// Is there any chance values have same assets.....
-pub fn expect_value_contains_v3(value: Value, required: Value) -> Void {
-  assets.reduce(
-    required,
-    Void,
-    fn(policy, name, req_qty, _acc) {
-      expect quantity_of(value, policy, name) >= req_qty
-    },
-  )
-}
+use cardano/assets.{PolicyId, Value, flatten}
+use cardano/transaction.{InlineDatum, Output}
 
 /// Get the datum from an output, expecting an inline datum
 pub fn expect_inline_datum(output: Output) -> Data {
@@ -47,89 +13,27 @@ pub fn expect_inline_datum(output: Output) -> Data {
   d
 }
 
-/// Find an input by a predicate
-pub fn find_input(
-  inputs: List<Input>,
-  predicate: fn(Input) -> Bool,
-) -> Option<Input> {
-  list.find(inputs, predicate)
+/// Check if a currency symbol is present in a value. Fail loudly if missing
+pub fn has_currency_symbol(haystack: Value, needle: PolicyId) -> Bool {
+  // Fast skip first pair which is always ada
+  let haystack = haystack |> assets.to_dict |> dict.to_pairs |> tail_list
+  do_has_currency_symbol(haystack, needle)
 }
 
-/// Must find an input by predicate (fails if not found)
-pub fn must_find_input(
-  inputs: List<Input>,
-  predicate: fn(Input) -> Bool,
-) -> Input {
-  when find_input(inputs, predicate) is {
-    Some(input) -> input
-    None -> fail @"Required input not found"
+fn do_has_currency_symbol(
+  haystack: List<Pair<PolicyId, a>>,
+  needle: PolicyId,
+) -> Bool {
+  when haystack is {
+    [] -> False
+    [Pair(head, _), ..tail] ->
+      head == needle || do_has_currency_symbol(tail, needle)
   }
-}
-
-/// Check if a currency symbol is present in a value
-pub fn has_currency_symbol(value: Value, cs: PolicyId) -> Bool {
-  // Check if I have assets name () -> quantity_of
-  // to_dict - values are dict. , and 
-  assets.to_dict(value) |> dict.has_key(cs)
-  // !dict.is_empty(tokens(value, cs))
 }
 
 /// Count unique tokens in a value (number of distinct currency symbol + token name pairs)
 pub fn count_unique_tokens(value: Value) -> Int {
-  // Original
-  // flatten(value) |> list.length
   assets.reduce(value, 0, fn(_policy, _name, _amount, acc) { acc + 1 })
-}
-
-/// Get all outputs paying to a specific credential
-pub fn outputs_at_credential(
-  outputs: List<Output>,
-  cred: Credential,
-) -> List<Output> {
-  list.filter(outputs, fn(output) { output.address.payment_credential == cred })
-}
-
-/// Get all inputs spending from a specific credential
-pub fn inputs_from_credential(
-  inputs: List<Input>,
-  cred: Credential,
-) -> List<Input> {
-  list.filter(
-    inputs,
-    fn(input) { input.output.address.payment_credential == cred },
-  )
-}
-
-/// Count inputs from a specific credential
-pub fn count_inputs_from_credential(
-  inputs: List<Input>,
-  cred: Credential,
-) -> Int {
-  inputs_from_credential(inputs, cred) |> list.length
-}
-
-/// Check if a transaction is signed by a public key hash
-pub fn is_signed_by(tx: Transaction, pkh: ByteArray) -> Bool {
-  list.any(tx.extra_signatories, fn(sig) { sig == pkh })
-}
-
-/// Check if a script is invoked (via withdrawal)
-pub fn is_script_invoked(tx: Transaction, script_cred: Credential) -> Bool {
-  list.any(
-    tx.withdrawals,
-    fn(withdrawal) {
-      let Pair(cred, _amount) = withdrawal
-      cred == script_cred
-    },
-  )
-}
-
-/// Get element at index from a list
-pub fn elem_at(lst: List<a>, idx: Int) -> a {
-  when list.drop(lst, idx) is {
-    [elem, ..] -> elem
-    [] -> fail @"Index out of bounds"
-  }
 }
 
 /// Check if a bytearray is lexicographically less than another

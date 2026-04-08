@@ -13,12 +13,11 @@ use linked_list.{
   collect_node_ios, is_inserted_directory_node, is_updated_directory_node,
   validate_directory_init, validate_directory_node_output,
 }
-use types.{
-  RegistryInit, RegistryInsert, RegistryRedeemer, RegistryNode,
-  IssuanceCborHex,
+use registry_node.{RegistryNode}
+use types.{IssuanceCborHex, RegistryInit, RegistryInsert, RegistryRedeemer}
+use utils.{
+  bytearray_lt, expect_inline_datum, is_programmable_token_registration,
 }
-use utils.{bytearray_lt,
-  expect_inline_datum, is_programmable_token_registration}
 
 validator registry_mint(
   utxo_ref: OutputReference,
@@ -97,7 +96,7 @@ validator registry_mint(
         let registry_node_updated =
           list.any(
             output_nodes,
-            fn(node) { is_updated_directory_node(node, covering_node.key, key) },
+            fn(node) { is_updated_directory_node(node, covering_node, key) },
           )
 
         // One output must be the new inserted node (insert_key -> next)

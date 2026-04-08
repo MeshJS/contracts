@@ -8,7 +8,7 @@ use aiken/collection/list
 
 use cardano/assets.{PolicyId, flatten}
 use cardano/transaction.{Transaction}
-use types.{ProgrammableLogicGlobalParams}
+use programmable_logic/params.{ProgrammableLogicGlobalParams}
 use utils.{expect_inline_datum, has_currency_symbol}
 
 validator registry_spend(protocol_params_cs: PolicyId) {
