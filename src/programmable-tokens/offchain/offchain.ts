@@ -93,6 +93,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     const programmableTokenDatum = conStr0([]);
 
     this.mesh.txEvaluationMultiplier = 1.3;
+    this.mesh.evaluator = this.inputs.mesh.evaluator;
     this.mesh
       .withdrawalPlutusScriptV3()
       .withdrawal(substandardIssue.rewardAddress, "0")
@@ -227,6 +228,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
       .filter((a) => BigInt(a.quantity) > 0n);
 
     this.mesh.txEvaluationMultiplier = 1.3;
+    this.mesh.evaluator = this.inputs.mesh.evaluator;
     this.mesh
       .txIn(feePayerUtxo.input.txHash, feePayerUtxo.input.outputIndex)
       .spendingPlutusScriptV3()
@@ -611,6 +613,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     ];
 
     this.mesh.txEvaluationMultiplier = 1.3;
+    this.mesh.evaluator = this.inputs.mesh.evaluator;
     this.mesh
       .spendingPlutusScriptV3()
       .txIn(nodeToReplace.input.txHash, nodeToReplace.input.outputIndex)
@@ -712,6 +715,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     const spendRedeemer = conStr0([]);
 
     this.mesh.txEvaluationMultiplier = 1.3;
+    this.mesh.evaluator = this.inputs.mesh.evaluator;
     this.mesh
       .spendingPlutusScriptV3()
       .txIn(nodeToRemove.input.txHash, nodeToRemove.input.outputIndex)
@@ -852,6 +856,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
       await substandardScript.issuerAdmin(issuerAdminPkh);
 
     this.mesh.txEvaluationMultiplier = 1.3;
+    this.mesh.evaluator = this.inputs.mesh.evaluator;
     this.mesh
       .txIn(feePayerUtxo.input.txHash, feePayerUtxo.input.outputIndex)
       .spendingPlutusScriptV3()
@@ -952,6 +957,7 @@ export class ProgrammableTokenContract extends MeshTxInitiator {
     ];
 
     this.mesh.txEvaluationMultiplier = 1.3;
+    this.mesh.evaluator = this.inputs.mesh.evaluator;
     this.mesh
       .txIn(bootstrapInput.txHash, bootstrapInput.outputIndex)
       .mintPlutusScriptV3()
