@@ -2,16 +2,15 @@
   "name": "@meshsdk/contract",
   "version": "1.9.0-beta.103",
   "description": "List of open-source smart contracts, complete with documentation, live demos, and end-to-end source code. https://meshjs.dev/smart-contracts",
-  "main": "./dist/index.cjs",
-  "browser": "./dist/index.js",
-  "module": "./dist/index.js",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
     }
   },
   "files": [
@@ -19,9 +18,9 @@
   ],
   "scripts": {
     "build:docs": "typedoc src/index.ts --json ../../apps/docs/src/data/mesh-contracts.json",
-    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "build": "tsup",
     "clean": "rm -rf .turbo && rm -rf dist && rm -rf node_modules",
-    "dev": "tsup src/index.ts --format esm,cjs --watch --dts",
+    "dev": "tsup --watch",
     "format": "prettier --check . --ignore-path ../../.gitignore",
     "lint": "eslint",
     "pack": "npm pack --pack-destination=./dist",
@@ -40,8 +39,12 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "@meshsdk/common": "^1.9.0-beta.96",
-    "@meshsdk/core": "^1.9.0-beta.96"
+    "@meshsdk/core-cst": "^1.9.0-beta.102",
+    "cbor": "^10.0.12"
+  },
+  "peerDependencies": {
+    "@meshsdk/common": "^1.9.0-beta.102",
+    "@meshsdk/core": "^1.9.0-beta.102"
   },
   "publishConfig": {
     "access": "public"

@@ -8,15 +8,8 @@ import {
   RegistryCredential,
   RegistryDatum,
 } from "./type";
-import {
-  deserializeAddress,
-} from "@meshsdk/core-cst";
-import {
-  deserializeDatum,
-  IFetcher,
-  IWallet,
-  UTxO,
-} from "@meshsdk/core";
+import { deserializeAddress } from "@meshsdk/core-cst";
+import { deserializeDatum, IFetcher, IWallet, UTxO } from "@meshsdk/core";
 import { resolveBlacklistScripts } from "./resolvers";
 
 export const findValidator = (
@@ -94,13 +87,12 @@ export function parseBlacklistDatum(datum: any): BlacklistDatum | null {
   };
 }
 
-
 export const selectProgrammableTokenUtxos = async (
   senderProgTokenUtxos: UTxO[],
   unit: string,
   amount: number,
 ) => {
-  let selectedUtxos: UTxO[] = [];
+  const selectedUtxos: UTxO[] = [];
   let selectedAmount = 0;
   for (const utxo of senderProgTokenUtxos) {
     if (selectedAmount >= amount) break;

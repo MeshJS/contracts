@@ -93,7 +93,7 @@ export class StandardScripts {
   async programmableLogicBase(params: ProtocolBootstrapParams | string) {
     const paramScriptHash = this.resolveParam(
       params,
-      (p) => p.programmableLogicGlobalPrams.scriptHash!,
+      (p) => p.programmableLogicGlobalParams.scriptHash!,
       "could not resolve logic base parameter",
     );
     const { cbor, plutusScript } = this.build(
