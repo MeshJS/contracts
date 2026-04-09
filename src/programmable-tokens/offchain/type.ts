@@ -78,7 +78,7 @@ export type BlacklistBootstrap = {
 
 export type ProtocolBootstrapParams = {
   protocolParams: ProtocolParams;
-  programmableLogicGlobalPrams: ProgrammableLogicGlobalParams;
+  programmableLogicGlobalParams: ProgrammableLogicGlobalParams;
   programmableLogicBaseParams: ProgrammableLogicBaseParams;
   issuanceParams: IssuanceParams;
   directoryMintParams: DirectoryMintParams;
